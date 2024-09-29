@@ -1,17 +1,83 @@
-// import * as cdk from 'aws-cdk-lib';
-// import { Template } from 'aws-cdk-lib/assertions';
-// import * as CdkWorkshop from '../lib/cdk-workshop-stack';
+import { Stack } from "aws-cdk-lib";
+import { Template, Capture } from "aws-cdk-lib/assertions";
+import { Code, Function, Runtime } from "aws-cdk-lib/aws-lambda";
+import { HitCounter } from "../lib/hitcounter";
 
-// example test. To run these tests, uncomment this file along with the
-// example resource in lib/cdk-workshop-stack.ts
-test('SQS Queue Created', () => {
-//   const app = new cdk.App();
-//     // WHEN
-//   const stack = new CdkWorkshop.CdkWorkshopStack(app, 'MyTestStack');
-//     // THEN
-//   const template = Template.fromStack(stack);
-
-//   template.hasResourceProperties('AWS::SQS::Queue', {
-//     VisibilityTimeout: 300
-//   });
+test("DynamoDB Table Created", () => {
+  const stack = new Stack();
+  // WHEN，stack有取到值
+  new HitCounter(stack, "MyTestConstruct", {
+    downstream: new Function(stack, "TestFunction", {
+      runtime: Runtime.NODEJS_18_X,
+      handler: "hello.handler",
+      code: Code.fromAsset("lambda"),
+    }),
+  });
+  // THEN，assertion斷言測試DB count
+  const template = Template.fromStack(stack);
+  template.resourceCountIs("AWS::DynamoDB::Table", 1);
 });
+
+test("Lambda Has Environment Variables", () => {
+    const stack = new Stack();
+    // WHEN
+    new HitCounter(stack, "MyTestConstruct", {
+      downstream: new Function(stack, "TestFunction", {
+        runtime: Runtime.NODEJS_18_X,
+        handler: "hello.handler",
+        code: Code.fromAsset("lambda"),
+      }),
+    });
+    // THEN
+    const template = Template.fromStack(stack);
+    const envCapture = new Capture();
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      Environment: envCapture,
+    });
+  
+    expect(envCapture.asObject()).toEqual({
+      Variables: {
+        DOWNSTREAM_FUNCTION_NAME: {
+          Ref: "TestFunctionXXXXX",
+        },
+        HITS_TABLE_NAME: {
+          Ref: "MyTestConstructHitsXXXXX",
+        },
+      },
+    });
+  });
+
+  test("DynamoDB Table Created With Encryption", () => {
+    const stack = new Stack();
+    // WHEN
+    new HitCounter(stack, "MyTestConstruct", {
+      downstream: new Function(stack, "TestFunction", {
+        runtime: Runtime.NODEJS_18_X,
+        handler: "hello.handler",
+        code: Code.fromAsset("lambda"),
+      }),
+    });
+    // THEN
+    const template = Template.fromStack(stack);
+    template.hasResourceProperties("AWS::DynamoDB::Table", {
+      SSESpecification: {
+        SSEEnabled: true,
+      },
+    });
+  });
+
+  test("read capacity can be configured", () => {
+    const stack = new Stack();
+  
+    expect(() => {
+      new HitCounter(stack, "MyTestConstruct", {
+        downstream: new Function(stack, "TestFunction", {
+          runtime: Runtime.NODEJS_18_X,
+          handler: "hello.handler",
+          code: Code.fromAsset("lambda"),
+        }),
+        readCapacity: 3,
+      });
+    }).toThrowError(/readCapacity must be greater than 5 and less than 20/);
+  });
+
