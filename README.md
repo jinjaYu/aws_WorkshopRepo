@@ -1,7 +1,7 @@
 # 參考至YT freeCodeCamp: AWS Cloud Development Kit (CDK) Crash Course
 在freeCodeCamp帶領下學習AWS CDK開發框架
 1.由基礎L1到L3結構講解
-2.中基礎parent to child structure的展開解說
+2.基礎parent to child structure的展開解說
 3.內建liberary試用
 4.testing
 
